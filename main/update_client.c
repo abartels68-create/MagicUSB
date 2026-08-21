@@ -15,6 +15,7 @@
 #include "psa/crypto.h"
 #include "diagnostic.h"
 #include "image_store.h"
+#include "manifest_verify.h"
 #include "release_version.h"
 
 #define MANIFEST_LIMIT 2048
@@ -144,8 +145,12 @@ esp_err_t update_client_stage(char *description, size_t description_size)
     char manifest_url[256];
     size_t url_size = sizeof(manifest_url);
     uint8_t allow_http = 0;
+    uint8_t manifest_public_key[32];
+    size_t public_key_size = sizeof(manifest_public_key);
     esp_err_t err = nvs_get_str(nvs, "update_url", manifest_url, &url_size);
     nvs_get_u8(nvs, "allow_http", &allow_http);
+    const esp_err_t public_key_status = nvs_get_blob(nvs, "manifest_pub", manifest_public_key,
+                                                      &public_key_size);
     nvs_close(nvs);
     if (err != ESP_OK) return err;
     if (strncmp(manifest_url, "https://", 8) != 0 &&
@@ -180,23 +185,40 @@ esp_err_t update_client_stage(char *description, size_t description_size)
     if (root == NULL) return ESP_ERR_INVALID_RESPONSE;
     const cJSON *schema = cJSON_GetObjectItemCaseSensitive(root, "schema_version");
     const cJSON *release = cJSON_GetObjectItemCaseSensitive(root, "release");
+    const cJSON *minimum = cJSON_GetObjectItemCaseSensitive(root, "minimum_firmware");
     const cJSON *size = cJSON_GetObjectItemCaseSensitive(root, "size");
     const cJSON *hash = cJSON_GetObjectItemCaseSensitive(root, "sha256");
     const cJSON *url = cJSON_GetObjectItemCaseSensitive(root, "download_url");
+    const cJSON *scope = cJSON_GetObjectItemCaseSensitive(root, "scope");
+    const cJSON *signature = cJSON_GetObjectItemCaseSensitive(root, "signature");
+    const cJSON *site_item = cJSON_IsObject(scope) ? cJSON_GetObjectItemCaseSensitive(scope, "site") : NULL;
+    const cJSON *device_item = cJSON_IsObject(scope) ? cJSON_GetObjectItemCaseSensitive(scope, "device_id") : NULL;
+    const char *site = cJSON_IsString(site_item) ? site_item->valuestring : "";
+    const char *device_id = cJSON_IsString(device_item) ? device_item->valuestring : "";
+    const bool secure_manifest = strncmp(manifest_url, "https://", 8) == 0;
     uint8_t expected_hash[32];
     const bool valid = cJSON_IsNumber(schema) && schema->valueint == 1 && cJSON_IsString(release) &&
         release_version_valid(release->valuestring) && strlen(release->valuestring) < 24 &&
+        cJSON_IsString(minimum) && strlen(minimum->valuestring) < 24 &&
         cJSON_IsNumber(size) && size->valuedouble >= 512 && size->valuedouble <= IMAGE_LIMIT &&
         ((uint32_t)size->valuedouble % 512) == 0 && cJSON_IsString(hash) &&
         decode_hash(hash->valuestring, expected_hash) && cJSON_IsString(url) &&
         (strncmp(url->valuestring, "https://", 8) == 0 ||
-         (allow_http == 1 && strncmp(url->valuestring, "http://", 7) == 0));
+         (allow_http == 1 && strncmp(url->valuestring, "http://", 7) == 0)) &&
+        (!secure_manifest || (cJSON_IsString(signature) && public_key_status == ESP_OK &&
+                              public_key_size == sizeof(manifest_public_key)));
     if (!valid) {
         cJSON_Delete(root);
         return ESP_ERR_INVALID_RESPONSE;
     }
 
     const size_t expected_size = (size_t)size->valuedouble;
+    if (secure_manifest && manifest_verify_ed25519(manifest_public_key, schema->valueint,
+            release->valuestring, minimum->valuestring, expected_size, hash->valuestring,
+            url->valuestring, site, device_id, signature->valuestring) != ESP_OK) {
+        cJSON_Delete(root);
+        return ESP_ERR_INVALID_CRC;
+    }
     if (image_store_active_matches(expected_size, expected_hash)) {
         snprintf(description, description_size, "Release %s already active", release->valuestring);
         cJSON_Delete(root);

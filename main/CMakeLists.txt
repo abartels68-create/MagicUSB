@@ -6,6 +6,7 @@ idf_component_register(
     "release_version.c"
     "storage.c"
     "image_store.c"
+    "manifest_verify.c"
     "update_client.c"
     "usb_msc.c"
     "wifi_station.c"

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import json
 import struct
@@ -58,6 +59,20 @@ def build_image(path: Path, release: str) -> bytes:
     return bytes(disk)
 
 
+def canonical_manifest(manifest: dict[str, object]) -> bytes:
+    scope = manifest.get("scope", {})
+    return (
+        f"schema_version={manifest['schema_version']}\n"
+        f"release={manifest['release']}\n"
+        f"minimum_firmware={manifest['minimum_firmware']}\n"
+        f"size={manifest['size']}\n"
+        f"sha256={manifest['sha256']}\n"
+        f"download_url={manifest['download_url']}\n"
+        f"site={scope.get('site', '')}\n"
+        f"device_id={scope.get('device_id', '')}\n"
+    ).encode("ascii")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
@@ -66,6 +81,7 @@ def main() -> None:
     parser.add_argument("--base-url", help="HTTPS or HTTP directory URL used in the manifest")
     parser.add_argument("--port", type=int, default=8088)
     parser.add_argument("--release", default="2026.08.20.1")
+    parser.add_argument("--signing-key", type=Path, help="raw 32-byte Ed25519 private seed")
     parser.add_argument("--build-only", action="store_true")
     args = parser.parse_args()
     if not args.base_url and not args.advertise:
@@ -83,6 +99,14 @@ def main() -> None:
                          f"http://{args.advertise}:{args.port}/release.fat"),
         "scope": {"site": "LAB"},
     }
+    if args.signing_key:
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+        private_seed = args.signing_key.read_bytes()
+        if len(private_seed) != 32:
+            parser.error("--signing-key must contain exactly 32 raw bytes")
+        signature = Ed25519PrivateKey.from_private_bytes(private_seed).sign(canonical_manifest(manifest))
+        manifest["signature"] = base64.b64encode(signature).decode("ascii")
     (args.output / "manifest.json").write_text(json.dumps(manifest, separators=(",", ":")), encoding="ascii")
     print(json.dumps({"release": args.release, "size": len(image), "sha256": manifest["sha256"]}))
     if not args.build_only:
