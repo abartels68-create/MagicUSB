@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "cJSON.h"
+#include "esp_app_desc.h"
 #include "esp_http_client.h"
 #include "esp_crt_bundle.h"
 #include "esp_log.h"
@@ -15,6 +16,7 @@
 #include "psa/crypto.h"
 #include "diagnostic.h"
 #include "image_store.h"
+#include "manifest_policy.h"
 #include "manifest_verify.h"
 #include "release_version.h"
 
@@ -147,10 +149,16 @@ esp_err_t update_client_stage(char *description, size_t description_size)
     uint8_t allow_http = 0;
     uint8_t manifest_public_key[65];
     size_t public_key_size = sizeof(manifest_public_key);
+    char provisioned_site[33] = "";
+    size_t provisioned_site_size = sizeof(provisioned_site);
+    char provisioned_device_id[65] = "";
+    size_t provisioned_device_id_size = sizeof(provisioned_device_id);
     esp_err_t err = nvs_get_str(nvs, "update_url", manifest_url, &url_size);
     nvs_get_u8(nvs, "allow_http", &allow_http);
     const esp_err_t public_key_status = nvs_get_blob(nvs, "manifest_pub", manifest_public_key,
                                                       &public_key_size);
+    nvs_get_str(nvs, "site", provisioned_site, &provisioned_site_size);
+    nvs_get_str(nvs, "device_id", provisioned_device_id, &provisioned_device_id_size);
     nvs_close(nvs);
     if (err != ESP_OK) return err;
     if (strncmp(manifest_url, "https://", 8) != 0 &&
@@ -195,11 +203,16 @@ esp_err_t update_client_stage(char *description, size_t description_size)
     const cJSON *device_item = cJSON_IsObject(scope) ? cJSON_GetObjectItemCaseSensitive(scope, "device_id") : NULL;
     const char *site = cJSON_IsString(site_item) ? site_item->valuestring : "";
     const char *device_id = cJSON_IsString(device_item) ? device_item->valuestring : "";
+    const bool scope_shape_valid = (scope == NULL || cJSON_IsObject(scope)) &&
+        (site_item == NULL || (cJSON_IsString(site_item) && site[0] != '\0')) &&
+        (device_item == NULL || (cJSON_IsString(device_item) && device_id[0] != '\0'));
     const bool secure_manifest = strncmp(manifest_url, "https://", 8) == 0;
     uint8_t expected_hash[32];
     const bool valid = cJSON_IsNumber(schema) && schema->valueint == 1 && cJSON_IsString(release) &&
         release_version_valid(release->valuestring) && strlen(release->valuestring) < 24 &&
         cJSON_IsString(minimum) && strlen(minimum->valuestring) < 24 &&
+        firmware_version_valid(minimum->valuestring) && scope_shape_valid &&
+        manifest_scope_valid(site, device_id) &&
         cJSON_IsNumber(size) && size->valuedouble >= 512 && size->valuedouble <= IMAGE_LIMIT &&
         ((uint32_t)size->valuedouble % 512) == 0 && cJSON_IsString(hash) &&
         decode_hash(hash->valuestring, expected_hash) && cJSON_IsString(url) &&
@@ -218,6 +231,18 @@ esp_err_t update_client_stage(char *description, size_t description_size)
             url->valuestring, site, device_id, signature->valuestring) != ESP_OK) {
         cJSON_Delete(root);
         return ESP_ERR_INVALID_CRC;
+    }
+    const esp_app_desc_t *application = esp_app_get_description();
+    if (application == NULL || !firmware_version_valid(application->version) ||
+        firmware_version_compare(application->version, minimum->valuestring) < 0) {
+        snprintf(description, description_size, "Firmware %s required", minimum->valuestring);
+        cJSON_Delete(root);
+        return ESP_ERR_NOT_SUPPORTED;
+    }
+    if (!manifest_scope_matches(site, device_id, provisioned_site, provisioned_device_id)) {
+        snprintf(description, description_size, "Release scope mismatch");
+        cJSON_Delete(root);
+        return ESP_ERR_NOT_FOUND;
     }
     if (image_store_active_matches(expected_size, expected_hash)) {
         snprintf(description, description_size, "Release %s already active", release->valuestring);

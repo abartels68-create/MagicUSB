@@ -22,6 +22,8 @@
 - [ ] Bench-test automatic promotion to the preferred company network onsite.
 - [ ] Migrate prototype credentials to encrypted NVS and define rotation/revocation.
 - [x] Parse and validate schema-v1 manifests.
+- [x] Verify ECDSA P-256 manifests and reject invalid signatures before image download.
+- [x] Enforce signed minimum-firmware and provisioned site/device scope policy.
 - [x] Implement strict release parsing, ordering, identical-image suppression, and downgrade rejection.
 - [ ] Add range-resumable downloads. CA/hostname validation, bounded retry/backoff, byte limits, and streaming SHA-256 are complete.
 - [x] Complete alternating metadata selection, bidirectional inactive-slot validation, and v1→v2 compatibility.
@@ -37,5 +39,5 @@
 ## Phase 4 — publisher and fleet controls
 
 - Build Drive-to-object-storage publisher with malware/content policy checks.
-- Add signed scoped manifests, per-device credentials, revocation, audit logs, and telemetry.
+- Add per-device credentials, revocation, audit logs, and telemetry. Signed scoped manifests are implemented.
 - Add signed firmware OTA, staged rollout, and recovery documentation.

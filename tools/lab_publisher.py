@@ -6,6 +6,7 @@ import argparse
 import base64
 import hashlib
 import json
+import re
 import struct
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
@@ -81,24 +82,35 @@ def main() -> None:
     parser.add_argument("--base-url", help="HTTPS or HTTP directory URL used in the manifest")
     parser.add_argument("--port", type=int, default=8088)
     parser.add_argument("--release", default="2026.08.20.1")
+    parser.add_argument("--minimum-firmware", default="0.1.0")
+    parser.add_argument("--site", default="LAB")
+    parser.add_argument("--device-id", default="")
     parser.add_argument("--signing-key", type=Path, help="raw 32-byte P-256 private scalar")
     parser.add_argument("--build-only", action="store_true")
     args = parser.parse_args()
     if not args.base_url and not args.advertise:
         parser.error("one of --base-url or --advertise is required")
+    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", args.minimum_firmware):
+        parser.error("--minimum-firmware must be major.minor.patch")
+    if args.site and not re.fullmatch(r"[A-Z0-9_-]{1,32}", args.site):
+        parser.error("--site must contain 1-32 uppercase letters, digits, '_' or '-'")
+    if len(args.device_id) > 64 or any(ord(char) < 0x21 or ord(char) > 0x7e for char in args.device_id):
+        parser.error("--device-id must contain at most 64 printable non-space ASCII characters")
 
     args.output.mkdir(parents=True, exist_ok=True)
     image = build_image(args.output / "release.fat", args.release)
     manifest = {
         "schema_version": 1,
         "release": args.release,
-        "minimum_firmware": "0.1.0",
+        "minimum_firmware": args.minimum_firmware,
         "size": len(image),
         "sha256": hashlib.sha256(image).hexdigest(),
         "download_url": (f"{args.base_url.rstrip('/')}/release.fat" if args.base_url else
                          f"http://{args.advertise}:{args.port}/release.fat"),
-        "scope": {"site": "LAB"},
+        "scope": {"site": args.site},
     }
+    if args.device_id:
+        manifest["scope"]["device_id"] = args.device_id
     if args.signing_key:
         from cryptography.hazmat.primitives import hashes
         from cryptography.hazmat.primitives.asymmetric import ec

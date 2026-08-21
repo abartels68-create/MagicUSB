@@ -40,7 +40,7 @@ Metadata records contain a monotonically increasing generation, active slot, rel
 
 The current hardware proof implements alternating binary metadata records, newest-valid-record selection, complete-image SHA-256 verification on every boot, fallback to the older valid record, read-only file access for MSC, and RAM fallback. It derives the inactive A/B slot from current metadata, streams the candidate to that slot's `.partial` file, verifies exact size and SHA-256, flushes it, and replaces only the inactive image. The updater runs on a dedicated 12 KiB task because the HTTP client and manifest buffer exceed the default 3,584-byte app-main stack.
 
-An explicit button press activates a verified pending image. Firmware first marks the medium unavailable and disconnects TinyUSB, waits for any active read callback to exit, re-verifies the pending slot, writes and flushes the alternate metadata record with an incremented generation, swaps the read-only file handle, and reconnects USB. A failed verification or metadata commit reconnects the previous active image. Signed manifests, directory-level durability testing, and fault injection remain before this is production-safe.
+An explicit button press activates a verified pending image. Firmware first marks the medium unavailable and disconnects TinyUSB, waits for any active read callback to exit, re-verifies the pending slot, writes and flushes the alternate metadata record with an incremented generation, swaps the read-only file handle, and reconnects USB. A failed verification or metadata commit reconnects the previous active image. Directory-level durability testing and fault injection remain before this is production-safe.
 
 Metadata v2 adds the activated `YYYY.MM.DD.build` release while continuing to read v1 records. Before downloading an image, firmware skips an exact active size/hash match and rejects a candidate release that is equal to or older than a known active release. The strict release parser/comparator is independent of ESP-IDF.
 
@@ -49,6 +49,8 @@ HTTPS requests attach Espressif's full built-in CA bundle, so certificate-chain 
 Bench validation on 2026-08-20 confirmed A→B activation, B→A activation, Windows disconnect/reconnect, cold-boot persistence, and active-image hash suppression. A metadata-v2 migration then activated release `2026.08.20.3`; when the server advertised different-content release `2026.08.20.2`, the dongle requested only the manifest, retained `.3`, and did not download the older FAT image. The lab endpoint used plain HTTP behind the explicit prototype-only NVS gate.
 
 HTTPS bench validation fetched release `2026.08.20.5` from public GitHub raw content with `allow_http=0`, verified and activated it, and confirmed the expected file through Windows after USB re-enumeration.
+
+ECDSA P-256 bench validation activated signed release `2026.08.20.7`. Changing only the signed release field to advertise `.8` caused the dongle to reject the manifest before staging while continuing to expose `.7`; the valid `.7` manifest was then restored. Signed manifest eligibility additionally enforces the running `major.minor.patch` firmware version and provisioned `site`/`device_id`: every nonempty scope constraint must match before an image request is made.
 
 Activation sequence:
 
@@ -75,7 +77,7 @@ The prototype currently loads two WPA2-Personal profiles from the `magicusb` NVS
 ## Security posture
 
 - USB is read-only and implements storage only; no USB network interface.
-- TLS server validation and signed manifests are required before production.
+- TLS server validation and ECDSA P-256-signed manifests are enforced for HTTPS updates.
 - Per-device credentials must be revocable and least-privileged.
 - Enable secure boot v2, flash encryption, encrypted NVS, and signed OTA only after the development recovery workflow is established; these controls are difficult to reverse.
 - The publishing service should scan/allowlist release contents before image creation and retain an audit record of uploader, scope, hashes, and publication time.
