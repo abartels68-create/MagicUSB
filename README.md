@@ -19,6 +19,7 @@ The current hardware proof:
 - activates the verified inactive slot only on an explicit button press, using durable alternating metadata and USB disconnect/reconnect;
 - selects the newest valid metadata/image pair after a cold boot and falls back to the older record if validation fails;
 - skips an identical active image and rejects equal or older `YYYY.MM.DD.build` releases before downloading their image;
+- validates public HTTPS servers with Espressif's full CA bundle and retries manifest/image transfers with bounded exponential backoff;
 - serves USB reads from the verified SD image with an immutable RAM fallback;
 - records the verified T-Dongle-S3 pin assignments in one board module.
 
@@ -40,7 +41,7 @@ On Windows, the device should enumerate as `MAGICUSB` and contain a read-only `R
 
 The project is verified with ESP-IDF 6.0.2, `espressif/esp_tinyusb` 2.2.1, `espressif/tinyusb` 0.21.0~1, and `espressif/cjson` 1.7.19~2. The current build produces `build/magicusb.bin` at approximately 938 KiB.
 
-The lab publisher in `tools/lab_publisher.py` creates a deterministic 64 KiB FAT12 release and manifest for isolated bench testing. Plain HTTP is accepted only when the separately provisioned `allow_http` NVS flag is set; production publishing still requires HTTPS and signed manifests.
+The lab publisher in `tools/lab_publisher.py` creates a deterministic 64 KiB FAT12 release and manifest for isolated bench testing. Plain HTTP is accepted only when the separately provisioned `allow_http` NVS flag is set. Public HTTPS certificate and hostname validation is implemented; signed manifests are still required before production.
 
 Metadata v2 records the activated release while remaining backward-compatible with v1 records. The release comparator is kept independent of ESP-IDF in `main/release_version.c` so it can be host-tested.
 

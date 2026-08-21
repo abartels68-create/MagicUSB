@@ -23,7 +23,7 @@
 - [ ] Migrate prototype credentials to encrypted NVS and define rotation/revocation.
 - [x] Parse and validate schema-v1 manifests.
 - [x] Implement strict release parsing, ordering, identical-image suppression, and downgrade rejection.
-- [ ] Download with TLS validation, range resume, and retry backoff. Byte limits and streaming SHA-256 are complete.
+- [ ] Add range-resumable downloads. CA/hostname validation, bounded retry/backoff, byte limits, and streaming SHA-256 are complete.
 - [x] Complete alternating metadata selection, bidirectional inactive-slot validation, and v1→v2 compatibility.
 
 ## Phase 3 — activation and fault testing

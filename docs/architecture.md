@@ -44,7 +44,11 @@ An explicit button press activates a verified pending image. Firmware first mark
 
 Metadata v2 adds the activated `YYYY.MM.DD.build` release while continuing to read v1 records. Before downloading an image, firmware skips an exact active size/hash match and rejects a candidate release that is equal to or older than a known active release. The strict release parser/comparator is independent of ESP-IDF.
 
+HTTPS requests attach Espressif's full built-in CA bundle, so certificate-chain and hostname validation are performed by `esp_http_client`. Manifest and image transfers each use at most three attempts with 500 ms then 1,000 ms backoff; every image retry truncates the inactive `.partial` file and restarts streaming SHA-256. Plain HTTP remains behind the explicit prototype-only `allow_http` NVS flag.
+
 Bench validation on 2026-08-20 confirmed A→B activation, B→A activation, Windows disconnect/reconnect, cold-boot persistence, and active-image hash suppression. A metadata-v2 migration then activated release `2026.08.20.3`; when the server advertised different-content release `2026.08.20.2`, the dongle requested only the manifest, retained `.3`, and did not download the older FAT image. The lab endpoint used plain HTTP behind the explicit prototype-only NVS gate.
+
+HTTPS bench validation fetched release `2026.08.20.5` from public GitHub raw content with `allow_http=0`, verified and activated it, and confirmed the expected file through Windows after USB re-enumeration.
 
 Activation sequence:
 
