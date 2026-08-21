@@ -36,6 +36,10 @@
 - [ ] Fault-inject power loss at every storage transition. A default-disabled,
   NVS-armed one-shot reset harness covers download, verified partial, inactive
   replacement, and metadata-commit boundaries without timing manual unplugging.
+  - [x] Mid-download reset preserves active release and ignores the partial file.
+  - [ ] Reset after complete download verification.
+  - [ ] Reset after inactive-slot replacement.
+  - [ ] Reset after activation metadata commit.
 - Measure Windows compatibility, boot-to-drive time, read speed, and thermal/power behavior.
 
 ## Phase 4 — publisher and fleet controls

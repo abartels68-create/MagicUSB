@@ -54,6 +54,8 @@ ECDSA P-256 bench validation activated signed release `2026.08.20.7`. Changing o
 
 The normal ready screen identifies the active release and combines storage and network health on its second line. A metadata-v1 or immutable fallback image without a release identifier is labeled `REL FACTORY`; an SD-backed v2 image shows its full `YYYY.MM.DD.build` value. Hardware validation on 2026-08-21 confirmed `REL 2026.08.20.8 / SD READY WIFI B` after a cold reconnect.
 
+Controlled fault validation on 2026-08-21 used the default-disabled NVS-armed test harness to restart after 32 KiB of a 64 KiB inactive-slot download. On reboot, release `.8` remained readable over USB, the incomplete partial file was not activated, and normal fault-disabled firmware plus clean provisioning were restored afterward.
+
 Activation sequence:
 
 1. Download to `download.partial`, never the active image.
