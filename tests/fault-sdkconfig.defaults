@@ -1,0 +1,2 @@
+# Bench-test build only. Production/default builds leave this disabled.
+CONFIG_MAGICUSB_FAULT_INJECTION=y

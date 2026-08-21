@@ -2,6 +2,7 @@ idf_component_register(
   SRCS
     "app_main.c"
     "diagnostic.c"
+    "fault_injection.c"
     "ram_disk.c"
     "release_version.c"
     "storage.c"

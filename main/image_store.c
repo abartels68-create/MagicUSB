@@ -8,6 +8,7 @@
 
 #include "esp_check.h"
 #include "esp_log.h"
+#include "fault_injection.h"
 #include "psa/crypto.h"
 
 #define STORE_ROOT "/sdcard/magicusb"
@@ -270,6 +271,7 @@ esp_err_t image_store_activate_pending(char *description, size_t description_siz
         fclose(verified);
         return metadata_status;
     }
+    fault_injection_maybe_restart(FAULT_STAGE_METADATA_COMMITTED);
 
     FILE *old = active_image;
     active_image = verified;

@@ -33,7 +33,9 @@
 - [x] Replace normal RAM-disk reads with a read-only image-file backend.
 - [x] Track active MSC reads and require an explicit button activation.
 - [x] Implement controlled TinyUSB disconnect/reconnect and older-record boot fallback.
-- Fault-inject power loss at every storage transition.
+- [ ] Fault-inject power loss at every storage transition. A default-disabled,
+  NVS-armed one-shot reset harness covers download, verified partial, inactive
+  replacement, and metadata-commit boundaries without timing manual unplugging.
 - Measure Windows compatibility, boot-to-drive time, read speed, and thermal/power behavior.
 
 ## Phase 4 — publisher and fleet controls

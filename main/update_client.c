@@ -15,6 +15,7 @@
 #include "nvs.h"
 #include "psa/crypto.h"
 #include "diagnostic.h"
+#include "fault_injection.h"
 #include "image_store.h"
 #include "manifest_policy.h"
 #include "manifest_verify.h"
@@ -81,6 +82,7 @@ static esp_err_t download_event(esp_http_client_event_t *event)
             return ESP_FAIL;
         }
         download->bytes += event->data_len;
+        if (download->bytes >= 32768) fault_injection_maybe_restart(FAULT_STAGE_DOWNLOAD_CHUNK);
     }
     return ESP_OK;
 }
@@ -141,6 +143,7 @@ static esp_err_t download_verified(const char *url, const char *partial_path,
 esp_err_t update_client_stage(char *description, size_t description_size)
 {
     if (description == NULL || description_size == 0) return ESP_ERR_INVALID_ARG;
+    if (fault_injection_latched()) return ESP_ERR_INVALID_STATE;
     diagnostic_mark(40);
     nvs_handle_t nvs;
     if (nvs_open("magicusb", NVS_READONLY, &nvs) != ESP_OK) return ESP_ERR_NOT_FOUND;
@@ -265,6 +268,7 @@ esp_err_t update_client_stage(char *description, size_t description_size)
         cJSON_Delete(root);
         return err;
     }
+    fault_injection_maybe_restart(FAULT_STAGE_DOWNLOAD_VERIFIED);
     /* Replace only the inactive slot after the partial image is fully flushed
      * and verified. A power loss still leaves the active metadata/image pair. */
     remove(image_path);
@@ -273,6 +277,7 @@ esp_err_t update_client_stage(char *description, size_t description_size)
         cJSON_Delete(root);
         return ESP_FAIL;
     }
+    fault_injection_maybe_restart(FAULT_STAGE_INACTIVE_REPLACED);
     err = image_store_register_pending(inactive_slot, expected_size, expected_hash, release->valuestring);
     if (err != ESP_OK) {
         cJSON_Delete(root);

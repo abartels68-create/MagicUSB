@@ -1,0 +1,12 @@
+menu "MagicUSB test options"
+
+config MAGICUSB_FAULT_INJECTION
+    bool "Enable NVS-controlled storage fault injection"
+    default n
+    help
+        Bench-test only. Allows a provisioned one-shot fault_stage value to
+        restart the device at selected update transitions. Leave disabled in
+        normal and production firmware.
+
+endmenu
+
