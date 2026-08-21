@@ -52,6 +52,8 @@ HTTPS bench validation fetched release `2026.08.20.5` from public GitHub raw con
 
 ECDSA P-256 bench validation activated signed release `2026.08.20.7`. Changing only the signed release field to advertise `.8` caused the dongle to reject the manifest before staging while continuing to expose `.7`; the valid `.7` manifest was then restored. Signed manifest eligibility additionally enforces the running `major.minor.patch` firmware version and provisioned `site`/`device_id`: every nonempty scope constraint must match before an image request is made.
 
+The normal ready screen identifies the active release and combines storage and network health on its second line. A metadata-v1 or immutable fallback image without a release identifier is labeled `REL FACTORY`; an SD-backed v2 image shows its full `YYYY.MM.DD.build` value.
+
 Activation sequence:
 
 1. Download to `download.partial`, never the active image.

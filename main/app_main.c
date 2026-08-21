@@ -19,8 +19,24 @@
 
 static const char *TAG = "magicusb";
 static bool network_connected;
+static bool storage_ready;
 static volatile bool activation_running;
 static char network_line[24] = "WIFI OFFLINE";
+
+static void display_ready_status(void)
+{
+    if (image_store_pending()) {
+        board_display_status("MAGICUSB", "UPDATE READY", "PRESS BUTTON");
+        return;
+    }
+    char release_line[24];
+    char status_line[40];
+    const char *release = image_store_active_release();
+    snprintf(release_line, sizeof(release_line), "REL %s", release[0] != '\0' ? release : "FACTORY");
+    snprintf(status_line, sizeof(status_line), "%s %s",
+             storage_ready ? "SD READY" : "USB CACHED", network_line);
+    board_display_status("MAGICUSB", release_line, status_line);
+}
 
 typedef struct {
     TaskHandle_t caller;
@@ -59,7 +75,7 @@ static void activation_task(void *argument)
     }
     vTaskDelay(pdMS_TO_TICKS(2000));
     board_set_status(network_connected ? BOARD_GREEN : BOARD_ORANGE);
-    board_display_status("MAGICUSB", "SD READY", network_line);
+    display_ready_status();
     activation_running = false;
     vTaskDelete(NULL);
 }
@@ -99,7 +115,7 @@ static void button_task(void *argument)
         } else if (!pressed && was_pressed && !activation_running) {
             vTaskDelay(pdMS_TO_TICKS(500));
             board_set_status(network_connected ? BOARD_GREEN : BOARD_ORANGE);
-            board_display_status("MAGICUSB", "SD READY", network_line);
+            display_ready_status();
         }
         if (!pressed && !activation_running) {
             char current_ssid[33];
@@ -115,8 +131,7 @@ static void button_task(void *argument)
                     strlcpy(network_line, "WIFI CONNECT", sizeof(network_line));
                     board_set_status(BOARD_ORANGE);
                 }
-                board_display_status("MAGICUSB", image_store_pending() ? "UPDATE READY" : "SD READY",
-                                     image_store_pending() ? "PRESS BUTTON" : network_line);
+                display_ready_status();
             }
         }
         was_pressed = pressed;
@@ -159,6 +174,7 @@ void app_main(void)
             const esp_err_t image_status = image_store_prepare(ram_disk_data(), ram_disk_size(),
                                                                 image_diagnostic, sizeof(image_diagnostic));
             if (image_status == ESP_OK) {
+                storage_ready = true;
                 ESP_LOGI(TAG, "%s", image_diagnostic);
                 ESP_ERROR_CHECK(board_display_status("MAGICUSB", "IMAGE A READY", "USB START"));
             } else {
@@ -219,7 +235,6 @@ void app_main(void)
         ESP_LOGW(TAG, "Wi-Fi unavailable; cached USB content remains ready: %s", esp_err_to_name(wifi));
         board_set_status(BOARD_ORANGE);
     }
-    ESP_ERROR_CHECK(board_display_status("MAGICUSB", image_store_pending() ? "UPDATE READY" : "SD READY",
-                                         image_store_pending() ? "PRESS BUTTON" : network_line));
+    display_ready_status();
     xTaskCreate(button_task, "button", 2048, NULL, 2, NULL);
 }

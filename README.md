@@ -11,6 +11,7 @@ The current hardware proof:
 - loads two provisioned Wi-Fi profiles from NVS without embedding credentials;
 - prioritizes the company network, reconnects after signal loss, and periodically checks for promotion from the home fallback;
 - reports state through the onboard TFT and APA102 LED;
+- shows the active release alongside SD/cache and Wi-Fi status on the normal ready screen;
 - verifies the BOOT button input;
 - mounts the microSD without automatic formatting and keeps it private to firmware;
 - seeds and SHA-256-verifies slot A using durable generation metadata;
