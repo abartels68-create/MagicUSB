@@ -1,0 +1,11 @@
+{
+  "device_id": "MAGICUSB-DEMO-001",
+  "site": "LAB",
+  "update_endpoint": "https://updates.example.invalid/v1/manifest",
+  "wifi_profiles": [
+    {
+      "ssid": "EXAMPLE_ONLY",
+      "password": "DO_NOT_PUT_REAL_SECRETS_HERE"
+    }
+  ]
+}
