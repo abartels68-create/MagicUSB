@@ -145,7 +145,7 @@ esp_err_t update_client_stage(char *description, size_t description_size)
     char manifest_url[256];
     size_t url_size = sizeof(manifest_url);
     uint8_t allow_http = 0;
-    uint8_t manifest_public_key[32];
+    uint8_t manifest_public_key[65];
     size_t public_key_size = sizeof(manifest_public_key);
     esp_err_t err = nvs_get_str(nvs, "update_url", manifest_url, &url_size);
     nvs_get_u8(nvs, "allow_http", &allow_http);
@@ -213,7 +213,7 @@ esp_err_t update_client_stage(char *description, size_t description_size)
     }
 
     const size_t expected_size = (size_t)size->valuedouble;
-    if (secure_manifest && manifest_verify_ed25519(manifest_public_key, schema->valueint,
+    if (secure_manifest && manifest_verify_signature(manifest_public_key, schema->valueint,
             release->valuestring, minimum->valuestring, expected_size, hash->valuestring,
             url->valuestring, site, device_id, signature->valuestring) != ESP_OK) {
         cJSON_Delete(root);

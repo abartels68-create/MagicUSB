@@ -20,6 +20,6 @@
         "device_id": { "type": "string", "maxLength": 64 }
       }
     },
-    "signature": { "type": "string", "description": "Base64 Ed25519 signature over canonical manifest fields; required after prototype." }
+    "signature": { "type": "string", "description": "Base64 ECDSA P-256/SHA-256 signature (raw r||s) over canonical manifest fields; required for HTTPS updates." }
   }
 }

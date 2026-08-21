@@ -81,7 +81,7 @@ def main() -> None:
     parser.add_argument("--base-url", help="HTTPS or HTTP directory URL used in the manifest")
     parser.add_argument("--port", type=int, default=8088)
     parser.add_argument("--release", default="2026.08.20.1")
-    parser.add_argument("--signing-key", type=Path, help="raw 32-byte Ed25519 private seed")
+    parser.add_argument("--signing-key", type=Path, help="raw 32-byte P-256 private scalar")
     parser.add_argument("--build-only", action="store_true")
     args = parser.parse_args()
     if not args.base_url and not args.advertise:
@@ -100,12 +100,17 @@ def main() -> None:
         "scope": {"site": "LAB"},
     }
     if args.signing_key:
-        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.asymmetric import ec
+        from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
 
         private_seed = args.signing_key.read_bytes()
         if len(private_seed) != 32:
             parser.error("--signing-key must contain exactly 32 raw bytes")
-        signature = Ed25519PrivateKey.from_private_bytes(private_seed).sign(canonical_manifest(manifest))
+        private_key = ec.derive_private_key(int.from_bytes(private_seed, "big"), ec.SECP256R1())
+        der_signature = private_key.sign(canonical_manifest(manifest), ec.ECDSA(hashes.SHA256()))
+        r, s = decode_dss_signature(der_signature)
+        signature = r.to_bytes(32, "big") + s.to_bytes(32, "big")
         manifest["signature"] = base64.b64encode(signature).decode("ascii")
     (args.output / "manifest.json").write_text(json.dumps(manifest, separators=(",", ":")), encoding="ascii")
     print(json.dumps({"release": args.release, "size": len(image), "sha256": manifest["sha256"]}))

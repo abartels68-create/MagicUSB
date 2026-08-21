@@ -5,7 +5,7 @@
 
 #include "esp_err.h"
 
-esp_err_t manifest_verify_ed25519(const uint8_t public_key[32], int schema_version,
+esp_err_t manifest_verify_signature(const uint8_t public_key[65], int schema_version,
                                   const char *release, const char *minimum_firmware,
                                   size_t image_size, const char *sha256,
                                   const char *download_url, const char *site,

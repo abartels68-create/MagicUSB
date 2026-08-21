@@ -18,7 +18,7 @@ static bool safe_field(const char *value)
     return true;
 }
 
-esp_err_t manifest_verify_ed25519(const uint8_t public_key[32], int schema_version,
+esp_err_t manifest_verify_signature(const uint8_t public_key[65], int schema_version,
                                   const char *release, const char *minimum_firmware,
                                   size_t image_size, const char *sha256,
                                   const char *download_url, const char *site,
@@ -43,15 +43,15 @@ esp_err_t manifest_verify_ed25519(const uint8_t public_key[32], int schema_versi
         signature_length != sizeof(signature)) return ESP_ERR_INVALID_RESPONSE;
 
     psa_key_attributes_t attributes = PSA_KEY_ATTRIBUTES_INIT;
-    psa_set_key_type(&attributes, PSA_KEY_TYPE_ECC_PUBLIC_KEY(PSA_ECC_FAMILY_TWISTED_EDWARDS));
-    psa_set_key_bits(&attributes, 255);
+    psa_set_key_type(&attributes, PSA_KEY_TYPE_ECC_PUBLIC_KEY(PSA_ECC_FAMILY_SECP_R1));
+    psa_set_key_bits(&attributes, 256);
     psa_set_key_usage_flags(&attributes, PSA_KEY_USAGE_VERIFY_MESSAGE);
-    psa_set_key_algorithm(&attributes, PSA_ALG_PURE_EDDSA);
+    psa_set_key_algorithm(&attributes, PSA_ALG_ECDSA(PSA_ALG_SHA_256));
     psa_key_id_t key = 0;
-    psa_status_t status = psa_import_key(&attributes, public_key, 32, &key);
+    psa_status_t status = psa_import_key(&attributes, public_key, 65, &key);
     psa_reset_key_attributes(&attributes);
     if (status != PSA_SUCCESS) return ESP_ERR_NOT_SUPPORTED;
-    status = psa_verify_message(key, PSA_ALG_PURE_EDDSA, (const uint8_t *)canonical,
+    status = psa_verify_message(key, PSA_ALG_ECDSA(PSA_ALG_SHA_256), (const uint8_t *)canonical,
                                 (size_t)length, signature, sizeof(signature));
     psa_destroy_key(key);
     return status == PSA_SUCCESS ? ESP_OK : ESP_ERR_INVALID_CRC;
